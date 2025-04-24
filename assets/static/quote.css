@@ -1,9 +1,10 @@
 .author {
-   font-weight: bold;
+   font-style: italic;
 }
 
 .words {
-   font-style: italic;
+   font-style: normal;
+   color:teal;
 }
 
 .annotation {
