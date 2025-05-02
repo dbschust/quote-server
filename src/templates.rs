@@ -3,7 +3,6 @@ use askama::Template;
 
 #[derive(Template)]
 #[template(path = "index.html")]
-
 pub struct IndexTemplate<'a> {
    quote: &'a Quote,
    stylesheet: &'static str,
