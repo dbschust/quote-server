@@ -77,6 +77,7 @@ async fn serve() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let db = SqlitePool::connect(&db_uri).await?;
+
     sqlx::migrate!().run(&db).await?;
     if let Some(path) = args.init_from {
         let quotes = read_quotes(path)?;
