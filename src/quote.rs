@@ -1,10 +1,16 @@
+use std::path::Path;
+use crate::QuoteError;
+use serde::Deserialize;
+
+
+#[derive(Deserialize)]
 pub struct Quote {
-   pub words: &'static str,
-   pub author: &'static str,
+    pub words: String,
+    pub author: String,
 }
 
-pub const THE_QUOTE: Quote = Quote {
-   words: "\"For if joyful is the fountain that rises in the sun, 
-   its springs are in the wells of sorrow unfathomable at the foundations of the Earth.\"",
-   author: "J.R.R. Tolkien, The Silmarillion",
-};
+pub fn read_quotes<P: AsRef<Path>>(quotes_path: P) -> Result<Vec<Quote>, QuoteError> {
+    let f = std::fs::File::open(quotes_path.as_ref())?;
+    let quotes = serde_json::from_reader(f)?;
+    Ok(quotes)
+}
