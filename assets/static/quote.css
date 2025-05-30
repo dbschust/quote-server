@@ -4,7 +4,7 @@
 
 .words {
    font-style: normal;
-   color:rgb(1, 48, 48);
+   color:rgb(1, 75, 75);
 }
 
 .annotation {
@@ -18,7 +18,7 @@ h1 {
 }
 
 .quote {
-   border: 1px solid black;
+   border: 1px solid rgb(1, 85, 39);
 }
 
 .error {

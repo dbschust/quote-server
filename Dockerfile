@@ -8,10 +8,8 @@
 # If you need more help, visit the Dockerfile reference guide at
 # https://docs.docker.com/go/dockerfile-reference/
 
-# Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
-
 ARG RUST_VERSION=1.87
-ARG APP_NAME=kk2
+ARG APP_NAME=quote-server
 
 ################################################################################
 # Create a stage for building the application.
@@ -20,7 +18,7 @@ FROM rust:${RUST_VERSION}-alpine AS build
 ARG APP_NAME
 WORKDIR /app
 
-ENV DATABASE_URL=sqlite:db/knock-knock.db
+ENV DATABASE_URL=sqlite:db/quotes.db
 
 # Install host build dependencies.
 RUN apk add --no-cache clang lld musl-dev git curl
