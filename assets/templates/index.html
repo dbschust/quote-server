@@ -10,5 +10,14 @@
       <span class="words">{{quote.words}}</span><br/>
       <span class="author">{{quote.author}}</span>
   </div>
+   <div class="info">
+      <span class="source">Source: {{quote.quote_source}}</span>
+      <span class="tags">Tags: {{tags}}</span>
+  </div>
+  <form>
+    <label>Tags (comma separated):</label>
+    <input type="text" name="tags"/>
+    <button type="submit">New Quote</button>
+  </form>
   </body>
 </html>

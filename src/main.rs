@@ -1,21 +1,37 @@
 mod error;
 mod quote;
 mod templates;
+mod web;
+mod api;
 
 use error::*;
 use quote::*;
 use templates::*;
 
+extern crate log;
 extern crate mime;
 
-use axum::{self, extract::State, response, routing};
+use axum::{
+    self,
+    extract::{Path, Query, State, Json},
+    http,
+    response::{self, IntoResponse},
+    routing,
+};
 use clap::Parser;
 extern crate fastrand;
-use sqlx::{SqlitePool, migrate::MigrateDatabase, sqlite};
+use serde::{Serialize, Deserialize};
+use sqlx::{Row, SqlitePool, migrate::MigrateDatabase, sqlite};
 use tokio::{net, sync::RwLock};
-use tower_http::{services, /*trace*/};
-//use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tower_http::{services, trace};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use utoipa::{OpenApi, ToSchema};
+use utoipa_axum::{router::OpenApiRouter, routes};
+use utoipa_rapidoc::RapiDoc;
+use utoipa_redoc::{Redoc, Servable};
+use utoipa_swagger_ui::SwaggerUi;
 
+use std::borrow::Cow;
 use std::sync::Arc;
 
 #[derive(Parser)]
@@ -24,29 +40,22 @@ struct Args {
     init_from: Option<std::path::PathBuf>,
     #[arg(short, long, name = "db-uri")]
     db_uri: Option<String>,
+    #[arg(short, long, default_value = "3000")]
+    port: u16,
 }
+
 struct AppState {
     db: SqlitePool,
+    current_quote: Quote,
 }
 
-async fn get_quote(State(app_state): State<Arc<RwLock<AppState>>>) -> response::Html<String> {
-    let app_state = app_state.read().await;
-    let db = &app_state.db;
-    let quote = sqlx::query_as!(Quote, "SELECT * FROM quotes ORDER BY RANDOM() LIMIT 1;")
-        .fetch_one(db)
-        .await
-        .unwrap();
-    let quote = IndexTemplate::quote(&quote);
-    response::Html(quote.to_string())
-}
-
-fn get_db_uri(db_uri: Option<&str>) -> String {
+fn get_db_uri(db_uri: Option<&str>) -> Cow<str> {
     if let Some(db_uri) = db_uri {
-        db_uri.to_string()
-    } else if let Ok(db_uri) = std::env::var("QUOTE_DB_URI") {
-        db_uri
+        db_uri.into()
+    } else if let Ok(db_uri) = std::env::var("DATABASE_URL") {
+        db_uri.into()
     } else {
-        "sqlite://db/quotes.db".to_string()
+        "sqlite://db/quotes.db".into()
     }
 }
 
@@ -65,7 +74,6 @@ fn extract_db_dir(db_uri: &str) -> Result<&str, QuoteError> {
     }
 }
 
-
 async fn serve() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
@@ -77,25 +85,50 @@ async fn serve() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let db = SqlitePool::connect(&db_uri).await?;
-
     sqlx::migrate!().run(&db).await?;
     if let Some(path) = args.init_from {
         let quotes = read_quotes(path)?;
-        let mut tx = db.begin().await?;
-        for q in &quotes {
-            sqlx::query!(
-                "INSERT INTO quotes VALUES ($1, $2);",
-                q.words,
-                q.author,
+        'next_quote: for jj in quotes {
+            let mut jtx = db.begin().await?;
+            let (j, ts) = jj.to_quote();
+            let quote_insert = sqlx::query!(
+                "INSERT INTO quotes (id, words, author, quote_source) VALUES ($1, $2, $3, $4);",
+                j.id,
+                j.words,
+                j.author,
+                j.quote_source,
             )
-            .execute(&mut *tx)
-            .await?;
+            .execute(&mut *jtx)
+            .await;
+            if let Err(e) = quote_insert {
+                eprintln!("error: quote insert: {}: {}", j.id, e);
+                jtx.rollback().await?;
+                continue;
+            };
+            for t in ts {
+                let tag_insert =
+                    sqlx::query!("INSERT INTO tags (quote_id, tag) VALUES ($1, $2);", j.id, t,)
+                        .execute(&mut *jtx)
+                        .await;
+                if let Err(e) = tag_insert {
+                    eprintln!("error: tag insert: {} {}: {}", j.id, t, e);
+                    jtx.rollback().await?;
+                    continue 'next_quote;
+                };
+            }
+            jtx.commit().await?;
         }
-        tx.commit().await?;
+        return Ok(());
     }
-    let state = Arc::new(RwLock::new(AppState { db }));
+    let current_quote = Quote {
+        id: "test".to_string(),
+        words: "Test Quote".to_string(),
+        author: "Test Author".to_string(),
+        quote_source: "Unknown".to_string(),
+    };
+    let app_state = AppState { db, current_quote };
+    let state = Arc::new(RwLock::new(app_state));
 
-    /*
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -107,11 +140,30 @@ async fn serve() -> Result<(), Box<dyn std::error::Error>> {
     let trace_layer = trace::TraceLayer::new_for_http()
         .make_span_with(trace::DefaultMakeSpan::new().level(tracing::Level::INFO))
         .on_response(trace::DefaultOnResponse::new().level(tracing::Level::INFO));
-    */
+
+    let cors = tower_http::cors::CorsLayer::new()
+        .allow_methods([http::Method::GET])
+        .allow_origin(tower_http::cors::Any);
+
+    async fn handler_404() -> axum::response::Response {
+        (http::StatusCode::NOT_FOUND, "404 Not Found").into_response()
+    }
 
     let mime_favicon = "image/vnd.microsoft.icon".parse().unwrap();
+
+    let (api_router, api) = OpenApiRouter::with_openapi(api::ApiDoc::openapi())
+        .nest("/api/v1", api::router())
+        .split_for_parts();
+
+    let swagger_ui = SwaggerUi::new("/swagger-ui")
+        .url("/api-docs/openapi.json", api.clone());
+    let redoc_ui = Redoc::with_url("/redoc", api);
+    let rapidoc_ui = RapiDoc::new("/api-docs/openapi.json").path("/rapidoc");
+
+
+
     let app = axum::Router::new()
-        .route("/", routing::get(get_quote))
+        .route("/", routing::get(web::get_quote))
         .route_service(
             "/quote.css",
             services::ServeFile::new_with_mime("assets/static/quote.css", &mime::TEXT_CSS_UTF_8),
@@ -120,10 +172,16 @@ async fn serve() -> Result<(), Box<dyn std::error::Error>> {
             "/favicon.ico",
             services::ServeFile::new_with_mime("assets/static/favicon.ico", &mime_favicon),
         )
-        //.layer(trace_layer)
+        .merge(swagger_ui)
+        .merge(redoc_ui)
+        .merge(rapidoc_ui)
+        .merge(api_router)
+        .fallback(handler_404)
+        .layer(cors)
+        .layer(trace_layer)
         .with_state(state);
 
-    let listener = net::TcpListener::bind("127.0.0.1:3000").await?;
+    let listener = net::TcpListener::bind(&format!("127.0.0.1:{}", args.port)).await?;
     axum::serve(listener, app).await?;
     Ok(())
 }
@@ -131,7 +189,7 @@ async fn serve() -> Result<(), Box<dyn std::error::Error>> {
 #[tokio::main]
 async fn main() {
     if let Err(err) = serve().await {
-        eprintln!("quoteserver: error: {}", err);
+        eprintln!("quote: error: {}", err);
         std::process::exit(1);
     }
 }

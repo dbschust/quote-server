@@ -1,0 +1,14 @@
+ALTER TABLE quotes RENAME TO quotes_v1;
+
+CREATE TABLE quotes (
+  id VARCHAR(200) UNIQUE PRIMARY KEY NOT NULL,
+  words VARCHAR(200) NOT NULL,
+  author VARCHAR(200) NOT NULL,
+  quote_source VARCHAR(200) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+  quote_id VARCHAR(200) NOT NULL,
+  tag VARCHAR(200) NOT NULL,
+  FOREIGN KEY (quote_id) REFERENCES quotes(id)
+);

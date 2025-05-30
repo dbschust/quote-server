@@ -1,0 +1,51 @@
+[
+  {
+    "id": "einstein-imagination",
+    "words": "Imagination is more important than knowledge.",
+    "author": "Albert Einstein",
+    "tags": ["science", "inspiration"],
+    "source": "https://www.goodreads.com/quotes/943-imagination-is-more-important-than-knowledge"
+  },
+  {
+    "id": "gandhi-change",
+    "words": "Be the change that you wish to see in the world.",
+    "author": "Mahatma Gandhi",
+    "tags": ["philosophy", "inspiration"],
+    "source": "https://www.goodreads.com/quotes/24499-be-the-change-that-you-wish-to-see-in-the"
+  },
+  {
+    "id": "mlk-dream",
+    "words": "I have a dream that one day this nation will rise up and live out the true meaning of its creed.",
+    "author": "Martin Luther King Jr.",
+    "tags": ["civil rights", "history"],
+    "source": "https://www.npr.org/2010/01/18/122701268/martin-luther-kings-i-have-a-dream-speech"
+  },
+  {
+    "id": "roosevelt-fear",
+    "words": "The only thing we have to fear is fear itself.",
+    "author": "Franklin D. Roosevelt",
+    "tags": ["leadership", "history"],
+    "source": "https://www.goodreads.com/quotes/8338-the-only-thing-we-have-to-fear-is-fear-itself"
+  },
+  {
+    "id": "twain-truth",
+    "words": "If you tell the truth, you don't have to remember anything.",
+    "author": "Mark Twain",
+    "tags": ["humor", "wisdom"],
+    "source": "https://www.goodreads.com/quotes/913-if-you-tell-the-truth-you-don-t-have-to-remember"
+  },
+  {
+    "id": "angelou-people",
+    "words": "People will forget what you said, people will forget what you did, but people will never forget how you made them feel.",
+    "author": "Maya Angelou",
+    "tags": ["wisdom", "inspiration"],
+    "source": "https://www.goodreads.com/quotes/727-people-will-forget-what-you-said-people-will-forget-what"
+  },
+  {
+    "id": "jobs-dots",
+    "words": "You can’t connect the dots looking forward; you can only connect them looking backward.",
+    "author": "Steve Jobs",
+    "tags": ["technology", "career", "life"],
+    "source": "https://news.stanford.edu/2005/06/14/jobs-061505/"
+  }
+]
