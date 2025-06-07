@@ -78,6 +78,7 @@ COPY --from=build /bin/server /bin/
 COPY --chown=appuser:appuser ./assets ./assets
 COPY --chown=appuser:appuser ./migrations ./migrations
 COPY --chown=appuser:appuser ./db ./db
+COPY Cargo.lock ./
 
 # Expose the port that the application listens on.
 EXPOSE 3000
